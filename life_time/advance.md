@@ -1,23 +1,17 @@
-# advance
-
-1
+1、
 ```rust
-/* Annotate struct with lifetime:
-1. `r` and `s` must has different lifetimes
-2. lifetime of `s` is bigger than that of 'r'
-*/
-struct DoubleRef<'a, T> {
+struct DoubleRef<'a,'b:'a, T> {
     r: &'a T,
-    s: &'a T,
+    s: &'b T
 }
 fn main() {
     println!("Success!")
 }
 ```
 
-2
+
+2、
 ```rust
-/* Adding trait bounds to make it work */
 struct ImportantExcerpt<'a> {
     part: &'a str,
 }
@@ -34,34 +28,21 @@ fn main() {
 }
 ```
 
-3
+3、
 ```rust
-/* Adding trait bounds to make it work */
-fn f<'a: 'b, 'b>(x: &'a i32, mut y: &'b i32) {
-    y = x;
-    let r: &'b &'a i32 = &&0;
+fn f<'a, 'b>(x: &'a i32, mut y: &'b i32) where 'a: 'b {
+    y = x;                      // &'a i32 is a subtype of &'b i32 because 'a: 'b
+    let r: &'b &'a i32 = &&0;   // &'b &'a i32 is well formed because 'a: 'b
 }
-
 fn main() {
     println!("Success!")
 }
 ```
 
-4
-```rust
-/* Adding HRTB to make it work!*/
-fn call_on_ref_zero<'a, F>(f: F)
-where
-    F: Fn(&'a i32),
-{
-    let zero: &'a i32 = &0;
-    f(zero);
-}
 
-fn call_on_ref_zero<F>(f: F)
-where
-    for<'a> F: Fn(&'a i32),
-{
+4、
+```rust
+fn call_on_ref_zero<F>(f: F) where for<'a> F: Fn(&'a i32) {
     let zero = 0;
     f(&zero);
 }
@@ -71,36 +52,43 @@ fn main() {
 }
 ```
 
-5
+
 ```rust
-/* Make it work by reordering some code */
+fn call_on_ref_zero<F>(f: F) where F: for<'a> Fn(&'a i32) {
+    let zero = 0;
+    f(&zero);
+}
+```
+
+5、
+```rust
 fn main() {
     let mut data = 10;
     let ref1 = &mut data;
     let ref2 = &mut *ref1;
 
-    *ref2 += 2;
+    *ref2 += 2;    
     *ref1 += 1;
 
     println!("{}", data);
 }
 ```
 
-6
+
+6、
 ```rust
-/* Make it work */
-struct Interface<'a, 'b: 'a> {
-    manager: &'a mut Manager<'b>,
+struct Interface<'b, 'a: 'b> {
+    manager: &'b mut Manager<'a>
 }
 
-impl<'a, 'b: 'a> Interface<'a, 'b> {
+impl<'b, 'a: 'b> Interface<'b, 'a> {
     pub fn noop(self) {
         println!("interface consumed");
     }
 }
 
 struct Manager<'a> {
-    text: &'a str,
+    text: &'a str
 }
 
 struct List<'a> {
@@ -109,25 +97,26 @@ struct List<'a> {
 
 impl<'a> List<'a> {
     pub fn get_interface<'b>(&'b mut self) -> Interface<'b, 'a>
-    where
-        'a: 'b,
-    {
+    where 'a: 'b {
         Interface {
-            manager: &mut self.manager,
+            manager: &mut self.manager
         }
     }
 }
 
 fn main() {
+
     let mut list = List {
-        manager: Manager { text: "hello" },
+        manager: Manager {
+            text: "hello"
+        }
     };
 
     list.get_interface().noop();
 
-    println!("Interface should be dropped here and the borrow released");
+    // println!("Interface should be dropped here and the borrow released");
 
-    use_list(&list);
+    // use_list(&list);
 }
 
 fn use_list(list: &List) {
